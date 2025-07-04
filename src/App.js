@@ -53,7 +53,7 @@ function App() {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = "exported_sentences.txt";
+    a.download = "export.txt";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -253,10 +253,10 @@ function App() {
             border: "1px solid #ccc", borderRadius: 8, padding: 24, fontSize: 18,
             minHeight: 80, background: "#fafafa", marginBottom: 16
           }}>
-            <b>실제 문장:</b><br />
+            <b>Result:</b><br />
             {editedSentences[currentIdx]}
           </div>
-          <b>{"드래그 중 토큰 위/사이 어디든 드랍 가능!"}</b>
+          <b>{"DRAG & DROP to move the tags"}</b>
           {renderDraggableTokens()}
         </div>
       )}
