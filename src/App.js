@@ -230,7 +230,7 @@ function App() {
 
   return (
     <div style={{ padding: 32, maxWidth: 700, margin: "auto" }}>
-      <h2>MathEditor</h2>
+      <h2>MathTagEditor</h2>
       <input type="file" onChange={handleFileChange} accept=".txt" />
       <button onClick={handleUpload}>Upload</button>
       <hr />
