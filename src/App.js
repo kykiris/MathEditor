@@ -1,0 +1,251 @@
+import React, { useState } from "react";
+
+function tokenize(sentence) {
+  const tagRegex = /(<MATH>|<\/MATH>)/g;
+  const splitByTag = sentence.split(tagRegex).filter(Boolean);
+  let tokens = [];
+  splitByTag.forEach(part => {
+    if (part === "<MATH>" || part === "</MATH>") {
+      tokens.push(part);
+    } else {
+      const parts = part.match(/\S+|\s/g);
+      if (parts) tokens.push(...parts);
+    }
+  });
+  return tokens.filter(Boolean);
+}
+
+function joinTokens(tokens) {
+  let joined = tokens.join("");
+
+  // <MATH> 앞뒤 최소 한 칸, 중복 방지
+  joined = joined.replace(/([^\s])<MATH>/g, '$1 <MATH>');
+  joined = joined.replace(/<MATH>([^\s])/g, '<MATH> $1');
+  joined = joined.replace(/([^\s])<\/MATH>/g, '$1 </MATH>');
+
+  // </MATH> 뒤가 쉼표/마침표 등 기호라면 공백 제거, 아니면 한 칸 보장
+  joined = joined.replace(/<\/MATH>\s*([,.;:!?])/g, '</MATH>$1');
+  joined = joined.replace(/<\/MATH>([^\s,.;:!?])/g, '</MATH> $1');
+
+  // 연속 공백은 하나로
+  return joined.replace(/\s+/g, " ").trim();
+}
+
+
+
+function App() {
+  const [file, setFile] = useState(null);
+  const [sentences, setSentences] = useState([]);
+  const [editedSentences, setEditedSentences] = useState([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+
+  const [dragIdx, setDragIdx] = useState(null);
+  const [dropIdx, setDropIdx] = useState(null);
+
+  function handleExport() {
+    const content = editedSentences.join("\n");
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "exported_sentences.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleFileChange = (e) => setFile(e.target.files[0]);
+  const handleUpload = async () => {
+    if (!file) return alert("파일을 선택하세요!");
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("http://127.0.0.1:8000/upload", { method: "POST", body: formData });
+    const data = await res.json();
+    setSentences(data.sentences || []);
+    setEditedSentences(data.sentences || []);
+    setCurrentIdx(0);
+  };
+
+  // 드래그 시작
+  const handleDragStart = (idx) => {
+    setDragIdx(idx);
+    setDropIdx(null);
+  };
+
+  // "토큰 사이"에 마우스 올라갈 때
+  const handleDragEnterSep = (i) => {
+    if (dragIdx !== null) setDropIdx(i);
+  };
+
+  // "토큰 위"에 마우스 올라갈 때(앞쪽에 삽입)
+  const handleDragEnterTok = (i) => {
+    if (dragIdx !== null) setDropIdx(i);
+  };
+
+  // 드랍 시 토큰 이동
+  const handleDrop = () => {
+    if (dragIdx === null || dropIdx === null || dragIdx === dropIdx) {
+      setDropIdx(null);
+      setDragIdx(null);
+      return;
+    }
+    const cur = editedSentences[currentIdx];
+    const tokens = tokenize(cur);
+    const [moving] = tokens.splice(dragIdx, 1);
+    // dragIdx < dropIdx면 dropIdx - 1로!
+    const realDropIdx = dragIdx < dropIdx ? dropIdx - 1 : dropIdx;
+    tokens.splice(realDropIdx, 0, moving);
+    const newSentence = joinTokens(tokens);
+    const arr = [...editedSentences];
+    arr[currentIdx] = newSentence;
+    setEditedSentences(arr);
+    setDropIdx(null);
+    setDragIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    setDropIdx(null);
+    setDragIdx(null);
+  };
+
+  const goPrev = () => setCurrentIdx(idx => Math.max(0, idx - 1));
+  const goNext = () => setCurrentIdx(idx => Math.min(sentences.length - 1, idx + 1));
+
+  function renderDraggableTokens() {
+    if (editedSentences.length === 0) return null;
+    const cur = editedSentences[currentIdx];
+    const tokens = tokenize(cur);
+
+    let spans = [];
+    for (let i = 0; i <= tokens.length; ++i) {
+      // 토큰 사이 삽입선
+      spans.push(
+        <span
+          key={`sep-${i}`}
+          onDragEnter={e => { e.preventDefault(); handleDragEnterSep(i); }}
+          onDragOver={e => e.preventDefault()}
+          onDrop={handleDrop}
+          style={{
+            display: "inline-block",
+            width: dropIdx === i ? 4 : 0,
+            height: 34,
+            background: dropIdx === i ? "red" : "transparent",
+            verticalAlign: "middle",
+            margin: "0 2px",
+            borderRadius: 4,
+            transition: "background 0.08s"
+          }}
+        ></span>
+      );
+      if (i < tokens.length) {
+        const token = tokens[i];
+        const isMathTag = token === "<MATH>" || token === "</MATH>";
+        const isWideSpace = token === " ";
+        spans.push(
+          <span
+            key={`tok-${i}`}
+            draggable
+            onDragStart={() => handleDragStart(i)}
+            onDragEnd={handleDragEnd}
+            onDragEnter={e => { e.preventDefault(); handleDragEnterTok(i); }}  // ★ 추가: 토큰 위 드롭 지원
+            onDragOver={e => e.preventDefault()}
+            onDrop={handleDrop}
+            style={{
+              userSelect: "none",
+              padding: isMathTag
+                ? "6px 8px"
+                : isWideSpace
+                ? "6px 8px"
+                : "6px 3px",
+              margin: 0,
+              background:
+                dragIdx === i
+                  ? "#ffd"
+                  : isMathTag
+                  ? token === "<MATH>" ? "#c3f4db" : "#d0e9f8"
+                  : isWideSpace
+                  ? "#eee"
+                  : "#f9f9f9",
+              border:
+                isMathTag
+                  ? "2px solid #999"
+                  : isWideSpace
+                  ? "1px dashed #ccc"
+                  : "1px solid #eee",
+              borderRadius: 4,
+              fontFamily: "monospace",
+              fontSize: 20,
+              cursor: "grab",
+              opacity: dragIdx === i ? 0.6 : 1,
+              fontWeight: isMathTag ? "bold" : "normal",
+              color:
+                isMathTag
+                  ? token === "<MATH>"
+                    ? "#007b51"
+                    : "#045179"
+                  : "#333",
+              whiteSpace: "pre"
+            }}
+            title={isWideSpace ? "띄어쓰기" : token}
+          >
+            {isWideSpace ? "\u2003" : token}
+          </span>
+        );
+      }
+    }
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          gap: 0,
+          minHeight: 40,
+          flexWrap: "wrap",
+          background: "#f4f8ff",
+          border: "1px solid #ccc",
+          borderRadius: 8,
+          padding: 10,
+          marginBottom: 20
+        }}
+      >
+        {spans}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: 32, maxWidth: 700, margin: "auto" }}>
+      <h2>토큰 단위 Drag & Drop (실시간 빨간 삽입선, 드랍 가능!)</h2>
+      <input type="file" onChange={handleFileChange} accept=".txt" />
+      <button onClick={handleUpload}>서버에 업로드</button>
+      <hr />
+      {sentences.length > 0 && (
+        <div>
+          <div style={{ marginBottom: 16 }}>
+            <button onClick={goPrev} disabled={currentIdx === 0}>이전</button>
+            <span style={{ margin: '0 12px' }}>
+              {currentIdx + 1} / {sentences.length}
+            </span>
+            <button onClick={goNext} disabled={currentIdx === sentences.length - 1}>다음</button>
+            <button onClick={handleExport} style={{ marginLeft: 16 }}>
+              편집된 문장 내보내기 (Export)
+            </button>
+          </div>
+          <div style={{
+            border: "1px solid #ccc", borderRadius: 8, padding: 24, fontSize: 18,
+            minHeight: 80, background: "#fafafa", marginBottom: 16
+          }}>
+            <b>실제 문장:</b><br />
+            {editedSentences[currentIdx]}
+          </div>
+          <b>{"드래그 중 토큰 위/사이 어디든 드랍 가능! (실시간 빨간선 미리보기)"}</b>
+          {renderDraggableTokens()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
