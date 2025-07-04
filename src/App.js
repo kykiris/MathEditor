@@ -41,6 +41,10 @@ function App() {
 
   const [dragIdx, setDragIdx] = useState(null);
   const [dropIdx, setDropIdx] = useState(null);
+  const [undoStack, setUndoStack] = useState([]); // Undo 히스토리
+
+
+  
 
   function handleExport() {
     const content = editedSentences.join("\n");
@@ -97,12 +101,21 @@ function App() {
     // dragIdx < dropIdx면 dropIdx - 1로!
     const realDropIdx = dragIdx < dropIdx ? dropIdx - 1 : dropIdx;
     tokens.splice(realDropIdx, 0, moving);
+
+    setUndoStack(stack => [...stack, [...editedSentences]]);
     const newSentence = joinTokens(tokens);
     const arr = [...editedSentences];
     arr[currentIdx] = newSentence;
     setEditedSentences(arr);
     setDropIdx(null);
     setDragIdx(null);
+  };
+
+  function handleUndo() {
+    if (undoStack.length === 0) return;
+    const prev = undoStack[undoStack.length - 1];
+    setUndoStack(stack => stack.slice(0, -1));
+    setEditedSentences(prev);
   };
 
   const handleDragEnd = () => {
@@ -229,6 +242,9 @@ function App() {
               {currentIdx + 1} / {sentences.length}
             </span>
             <button onClick={goNext} disabled={currentIdx === sentences.length - 1}>Next</button>
+            <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ marginLeft: 16 }}>
+              Undo (Undo)
+            </button>
             <button onClick={handleExport} style={{ marginLeft: 16 }}>
               Export... (Export)
             </button>
