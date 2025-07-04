@@ -217,20 +217,20 @@ function App() {
 
   return (
     <div style={{ padding: 32, maxWidth: 700, margin: "auto" }}>
-      <h2>토큰 단위 Drag & Drop (실시간 빨간 삽입선, 드랍 가능!)</h2>
+      <h2>MathEditor</h2>
       <input type="file" onChange={handleFileChange} accept=".txt" />
-      <button onClick={handleUpload}>서버에 업로드</button>
+      <button onClick={handleUpload}>Upload</button>
       <hr />
       {sentences.length > 0 && (
         <div>
           <div style={{ marginBottom: 16 }}>
-            <button onClick={goPrev} disabled={currentIdx === 0}>이전</button>
+            <button onClick={goPrev} disabled={currentIdx === 0}>Prev</button>
             <span style={{ margin: '0 12px' }}>
               {currentIdx + 1} / {sentences.length}
             </span>
-            <button onClick={goNext} disabled={currentIdx === sentences.length - 1}>다음</button>
+            <button onClick={goNext} disabled={currentIdx === sentences.length - 1}>Next</button>
             <button onClick={handleExport} style={{ marginLeft: 16 }}>
-              편집된 문장 내보내기 (Export)
+              Export... (Export)
             </button>
           </div>
           <div style={{
@@ -240,7 +240,7 @@ function App() {
             <b>실제 문장:</b><br />
             {editedSentences[currentIdx]}
           </div>
-          <b>{"드래그 중 토큰 위/사이 어디든 드랍 가능! (실시간 빨간선 미리보기)"}</b>
+          <b>{"드래그 중 토큰 위/사이 어디든 드랍 가능!"}</b>
           {renderDraggableTokens()}
         </div>
       )}
