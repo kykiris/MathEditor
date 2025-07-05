@@ -1,8 +1,10 @@
-import nltk
 import os
+import nltk
 
-local_path = os.path.join(os.path.dirname(__file__), "nltk_data")
-nltk.data.path.append(local_path)
+# 현재 파일 경로 기준으로 nltk_data 등록
+NLTK_DATA_PATH = os.path.join(os.path.dirname(__file__), "nltk_data")
+nltk.data.path.insert(0, NLTK_DATA_PATH)
+print("NLTK_DATA_PATH", NLTK_DATA_PATH, "NLTK.data.path", nltk.data.path)
 
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
