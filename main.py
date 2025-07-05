@@ -1,5 +1,12 @@
 import nltk
-nltk.download("punkt")
+import os
+
+# Render 환경에서는 /tmp가 쓰기 가능한 경로임
+NLTK_DATA_PATH = "/tmp/nltk_data"
+os.makedirs(NLTK_DATA_PATH, exist_ok=True)
+nltk.data.path.append(NLTK_DATA_PATH)
+nltk.download("punkt", download_dir=NLTK_DATA_PATH)
+
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
