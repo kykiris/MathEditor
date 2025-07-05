@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 
 function tokenize(sentence) {
   const tagRegex = /(<MATH>|<\/MATH>)/g;
@@ -17,21 +17,13 @@ function tokenize(sentence) {
 
 function joinTokens(tokens) {
   let joined = tokens.join("");
-
-  // <MATH> 앞뒤 최소 한 칸, 중복 방지
   joined = joined.replace(/([^\s])<MATH>/g, '$1 <MATH>');
   joined = joined.replace(/<MATH>([^\s])/g, '<MATH> $1');
   joined = joined.replace(/([^\s])<\/MATH>/g, '$1 </MATH>');
-
-  // </MATH> 뒤가 쉼표/마침표 등 기호라면 공백 제거, 아니면 한 칸 보장
   joined = joined.replace(/<\/MATH>\s*([,.;:!?])/g, '</MATH>$1');
   joined = joined.replace(/<\/MATH>([^\s,.;:!?])/g, '</MATH> $1');
-
-  // 연속 공백은 하나로
   return joined.replace(/\s+/g, " ").trim();
 }
-
-
 
 function App() {
   const [file, setFile] = useState(null);
@@ -41,10 +33,18 @@ function App() {
 
   const [dragIdx, setDragIdx] = useState(null);
   const [dropIdx, setDropIdx] = useState(null);
-  const [undoStack, setUndoStack] = useState([]); // Undo 히스토리
+  const [undoStack, setUndoStack] = useState([]);
+  const [selectedIdx, setSelectedIdx] = useState(0);
 
+  const tokenDivRef = useRef();
 
-  
+  // 포커스를 항상 유지 (문장 바뀔 때, 마운트 후)
+  useEffect(() => {
+    if (editedSentences.length === 0) return;
+    const tokens = tokenize(editedSentences[currentIdx]);
+    setSelectedIdx(idx => Math.min(idx, tokens.length - 1));
+    if (tokenDivRef.current) tokenDivRef.current.focus();
+  }, [currentIdx, sentences.length, editedSentences]);
 
   function handleExport() {
     const content = editedSentences.join("\n");
@@ -70,25 +70,117 @@ function App() {
     setSentences(data.sentences || []);
     setEditedSentences(data.sentences || []);
     setCurrentIdx(0);
+    setSelectedIdx(0);
+    setDragIdx(null);
+    setDropIdx(null);
+    setUndoStack([]);
   };
 
-  // 드래그 시작
+  // Undo (키보드/버튼)
+  function handleUndo() {
+    if (undoStack.length === 0) return;
+    const prev = undoStack[undoStack.length - 1];
+    setUndoStack(stack => stack.slice(0, -1));
+    setEditedSentences(prev);
+  };
+
+  function handleKeyDown(e) {
+    if (editedSentences.length === 0) return;
+    const tokens = tokenize(editedSentences[currentIdx]);
+    const maxIdx = tokens.length - 1;
+
+    // Undo
+    if (e.ctrlKey && e.key === "z") {
+      handleUndo();
+      e.preventDefault();
+      return;
+    }
+
+    // 이동 모드 아님 (토큰 선택)
+    if (dragIdx === null) {
+      if (e.key === "ArrowRight") {
+        setSelectedIdx(idx => Math.min(maxIdx, idx + 1));
+        e.preventDefault();
+      } else if (e.key === "ArrowLeft") {
+        setSelectedIdx(idx => Math.max(0, idx - 1));
+        e.preventDefault();
+      } else if (e.key === "ArrowDown") {
+        // 아래 줄 같은 인덱스(불가하면 마지막)
+        if (currentIdx < sentences.length - 1) {
+          const nextTokens = tokenize(editedSentences[currentIdx + 1]);
+          setCurrentIdx(currentIdx + 1);
+          setSelectedIdx(idx => Math.min(idx, nextTokens.length - 1));
+        }
+        e.preventDefault();
+      } else if (e.key === "ArrowUp") {
+        // 위 줄 같은 인덱스(불가하면 마지막)
+        if (currentIdx > 0) {
+          const prevTokens = tokenize(editedSentences[currentIdx - 1]);
+          setCurrentIdx(currentIdx - 1);
+          setSelectedIdx(idx => Math.min(idx, prevTokens.length - 1));
+        }
+        e.preventDefault();
+      } else if (e.key === "Enter" || e.key === " ") {
+        setDragIdx(selectedIdx);
+        setDropIdx(selectedIdx);
+        e.preventDefault();
+      }
+    } else {
+      // 이동모드
+      if (e.key === "ArrowRight") {
+        setDropIdx(idx => Math.min(tokens.length, idx + 1));
+        e.preventDefault();
+      } else if (e.key === "ArrowLeft") {
+        setDropIdx(idx => Math.max(0, idx - 1));
+        e.preventDefault();
+      } else if (e.key === "Enter" || e.key === " ") {
+        if (dragIdx !== null && dropIdx !== null && dragIdx !== dropIdx) {
+          const tokensArr = [...tokens];
+          const [moving] = tokensArr.splice(dragIdx, 1);
+          const realDrop = dragIdx < dropIdx ? dropIdx - 1 : dropIdx;
+          tokensArr.splice(realDrop, 0, moving);
+
+          setUndoStack(stack => [...stack, [...editedSentences]]);
+          const arr = [...editedSentences];
+          arr[currentIdx] = joinTokens(tokensArr);
+          setEditedSentences(arr);
+          setSelectedIdx(realDrop);
+        }
+        setDragIdx(null);
+        setDropIdx(null);
+        e.preventDefault();
+      } else if (e.key === "Escape") {
+        setDragIdx(null);
+        setDropIdx(null);
+        e.preventDefault();
+      }
+    }
+  }
+
+  const goPrev = () => {
+    setCurrentIdx(idx => Math.max(0, idx - 1));
+    setSelectedIdx(0);
+    setDragIdx(null);
+    setDropIdx(null);
+  };
+  const goNext = () => {
+    setCurrentIdx(idx => Math.min(sentences.length - 1, idx + 1));
+    setSelectedIdx(0);
+    setDragIdx(null);
+    setDropIdx(null);
+  };
+
+  // 드래그&드롭 그대로 유지 (마우스)
   const handleDragStart = (idx) => {
     setDragIdx(idx);
     setDropIdx(null);
   };
-
-  // "토큰 사이"에 마우스 올라갈 때
   const handleDragEnterSep = (i) => {
     if (dragIdx !== null) setDropIdx(i);
   };
-
-  // "토큰 위"에 마우스 올라갈 때(앞쪽에 삽입)
   const handleDragEnterTok = (i) => {
     if (dragIdx !== null) setDropIdx(i);
   };
-
-  // 드랍 시 토큰 이동
   const handleDrop = () => {
     if (dragIdx === null || dropIdx === null || dragIdx === dropIdx) {
       setDropIdx(null);
@@ -98,7 +190,6 @@ function App() {
     const cur = editedSentences[currentIdx];
     const tokens = tokenize(cur);
     const [moving] = tokens.splice(dragIdx, 1);
-    // dragIdx < dropIdx면 dropIdx - 1로!
     const realDropIdx = dragIdx < dropIdx ? dropIdx - 1 : dropIdx;
     tokens.splice(realDropIdx, 0, moving);
 
@@ -109,22 +200,12 @@ function App() {
     setEditedSentences(arr);
     setDropIdx(null);
     setDragIdx(null);
+    setSelectedIdx(realDropIdx); // 이동 후 키보드 포커스 연동
   };
-
-  function handleUndo() {
-    if (undoStack.length === 0) return;
-    const prev = undoStack[undoStack.length - 1];
-    setUndoStack(stack => stack.slice(0, -1));
-    setEditedSentences(prev);
-  };
-
   const handleDragEnd = () => {
     setDropIdx(null);
     setDragIdx(null);
   };
-
-  const goPrev = () => setCurrentIdx(idx => Math.max(0, idx - 1));
-  const goNext = () => setCurrentIdx(idx => Math.min(sentences.length - 1, idx + 1));
 
   function renderDraggableTokens() {
     if (editedSentences.length === 0) return null;
@@ -162,7 +243,7 @@ function App() {
             draggable
             onDragStart={() => handleDragStart(i)}
             onDragEnd={handleDragEnd}
-            onDragEnter={e => { e.preventDefault(); handleDragEnterTok(i); }}  // ★ 추가: 토큰 위 드롭 지원
+            onDragEnter={e => { e.preventDefault(); handleDragEnterTok(i); }}
             onDragOver={e => e.preventDefault()}
             onDrop={handleDrop}
             style={{
@@ -174,7 +255,9 @@ function App() {
                 : "6px 3px",
               margin: 0,
               background:
-                dragIdx === i
+                selectedIdx === i
+                  ? "#f9f"
+                  : dragIdx === i
                   ? "#ffd"
                   : isMathTag
                   ? token === "<MATH>" ? "#c3f4db" : "#d0e9f8"
@@ -182,7 +265,11 @@ function App() {
                   ? "#eee"
                   : "#f9f9f9",
               border:
-                isMathTag
+                selectedIdx === i
+                  ? "2px solid #b0b"
+                  : dragIdx === i
+                  ? "2px dashed #999"
+                  : isMathTag
                   ? "2px solid #999"
                   : isWideSpace
                   ? "1px dashed #ccc"
@@ -211,8 +298,12 @@ function App() {
 
     return (
       <div
+        ref={tokenDivRef}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
         style={{
           display: "flex",
+          outline: "none",
           gap: 0,
           minHeight: 40,
           flexWrap: "wrap",
@@ -220,7 +311,7 @@ function App() {
           border: "1px solid #ccc",
           borderRadius: 8,
           padding: 10,
-          marginBottom: 20
+          marginBottom: 20,
         }}
       >
         {spans}
@@ -262,8 +353,12 @@ function App() {
             <b>Result:</b><br />
             {editedSentences[currentIdx]}
           </div>
-          <b>{"DRAG & DROP to move the tags"}</b>
           {renderDraggableTokens()}
+          <b>{"1.1. DRAG & DROP을 통해 마우스로 직접 토큰을 옮기는 방법이 있습니다."}<br></br></b>
+          <b>{"1.2. 왼쪽, 오른쪽 방향키를 이용하여 포커스를 이동한 후 스페이스바를 누르면 토큰이 선택됩니다. 토큰이 선택된 상태에서 왼/오 방향키를 누르면 토큰을 문장 내에서 이동시킬 수 있습니다."}<br></br></b>
+          <b>{"2. 위/아래 방향키로 문장 간 이동이 가능합니다."}<br></br></b>
+          <b>{"3. Ctrl+Z로 Undo 할 수 있습니다."}<br></br></b>
+          <b>{"4. ESC를 이용해 포커스 선택을 취소할 수 있습니다."}</b>
         </div>
       )}
     </div>
