@@ -10,9 +10,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-
 app = FastAPI()
-
 
 # CORS(로컬 프론트와 연동할 때만)
 app.add_middleware(
@@ -26,7 +24,8 @@ app.add_middleware(
 def split_sentences(text):
     import re
     sents = re.split(r'(?<=[.!?])\s+', text)
-    return [s.strip() for s in sents if s.strip()]
+    # <MATH> 또는 </MATH>가 포함된 문장만 반환
+    return [s.strip() for s in sents if s.strip() and ("<MATH>" in s or "</MATH>" in s)]
 
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
