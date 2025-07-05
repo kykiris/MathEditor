@@ -65,7 +65,7 @@ function App() {
     if (!file) return alert("파일을 선택하세요!");
     const formData = new FormData();
     formData.append("file", file);
-    const res = await fetch("http://127.0.0.1:8000/upload", { method: "POST", body: formData });
+    const res = await fetch("https://mathtageditor.onrender.com/upload", { method: "POST", body: formData });
     const data = await res.json();
     setSentences(data.sentences || []);
     setEditedSentences(data.sentences || []);
