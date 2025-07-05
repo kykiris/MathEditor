@@ -25,8 +25,54 @@ function joinTokens(tokens) {
   return joined.replace(/\s+/g, " ").trim();
 }
 
+function calcTagMoveAccuracy(originalSentences, editedSentences) {
+  let totalTags = 0;
+  let movedTags = 0;
+
+  function tagPositions(tokens, tag) {
+    // 태그별 위치 인덱스 배열 리턴
+    const positions = [];
+    tokens.forEach((t, i) => {
+      if (t === tag) positions.push(i);
+    });
+    return positions;
+  }
+
+  for (let i = 0; i < originalSentences.length; ++i) {
+    const orig = originalSentences[i] || "";
+    const edit = editedSentences[i] || "";
+
+    // 기존 tokenize 함수 사용 (단어+공백+태그 단위 분리)
+    const origTokens = tokenize(orig);
+    const editTokens = tokenize(edit);
+
+    // 각 문장에서 <MATH>와 </MATH> 위치 찾기
+    const origMathPos = tagPositions(origTokens, "<MATH>");
+    const editMathPos = tagPositions(editTokens, "<MATH>");
+    const origEndPos = tagPositions(origTokens, "</MATH>");
+    const editEndPos = tagPositions(editTokens, "</MATH>");
+
+    // 전체 태그 개수 세기
+    totalTags += origMathPos.length;
+    totalTags += origEndPos.length;
+
+    // 이동(변경)된 태그 개수 세기
+    for (let j = 0; j < origMathPos.length; ++j) {
+      if (editMathPos[j] !== origMathPos[j]) movedTags += 1;
+    }
+    for (let j = 0; j < origEndPos.length; ++j) {
+      if (editEndPos[j] !== origEndPos[j]) movedTags += 1;
+    }
+  }
+
+  // Accuracy 계산 (변경되지 않은 태그 개수 / 전체 태그 개수)
+  const unchanged = totalTags - movedTags;
+  const accuracy = totalTags === 0 ? 1 : unchanged / totalTags;
+  return { totalTags, movedTags, accuracy };
+}
+
 function App() {
-  const [file, setFile] = useState(null);
+  const [fileList, setFileList] = useState(null);
   const [sentences, setSentences] = useState([]);
   const [editedSentences, setEditedSentences] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -35,8 +81,18 @@ function App() {
   const [dropIdx, setDropIdx] = useState(null);
   const [undoStack, setUndoStack] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  
 
   const tokenDivRef = useRef();
+
+  // const modifiedCount = sentences.reduce(
+  //   (count, s, i) => count + (editedSentences[i] !== s ? 1 : 0),
+  //   0
+  // );
+  // const totalCount = sentences.length;
+  const { totalTags, movedTags, accuracy } = calcTagMoveAccuracy(sentences, editedSentences);
+  const accuracyStr = (accuracy * 100).toFixed(2) + "%";
+
 
   // 포커스를 항상 유지 (문장 바뀔 때, 마운트 후)
   useEffect(() => {
@@ -326,7 +382,7 @@ function App() {
         안 돌아가면 김유경에게 알려주세요...
       </p>
       <p style={{ color: "#555", fontSize: 16, margin: "8px 0 16px 0" }}>
-        무료 호스팅 중이라 중간중간 로딩이 오래 걸릴 수도 있습니다...
+        무료 호스팅 중이라 중간중간 로딩이 오래 걸릴 수도 있습니다. Upload 버튼 누르고 아무 일도 일어나지 않으면 몇 분 정도 더 기다려보세요
       </p>
       <input type="file" onChange={handleFileChange} accept=".txt" multiple />
       <button onClick={handleUpload}>Upload</button>
@@ -345,6 +401,12 @@ function App() {
             <button onClick={handleExport} style={{ marginLeft: 16 }}>
               Export... (Export)
             </button>
+            <div style={{ fontSize: 14, color: "#888", marginTop: 5, marginLeft: 30 }}>
+              위치가 바뀐 태그: {movedTags} / 전체 태그 {totalTags}
+              <span style={{ marginLeft: 16 }}>
+                Accuracy: {accuracyStr}
+              </span>
+            </div>
           </div>
           <div style={{
             border: "1px solid #ccc", borderRadius: 8, padding: 24, fontSize: 18,
@@ -354,11 +416,11 @@ function App() {
             {editedSentences[currentIdx]}
           </div>
           {renderDraggableTokens()}
-          <b>{"1.1. DRAG & DROP을 통해 마우스로 직접 토큰을 옮기는 방법이 있습니다."}<br></br></b>
-          <b>{"1.2. 왼쪽, 오른쪽 방향키를 이용하여 포커스를 이동한 후 스페이스바를 누르면 토큰이 선택됩니다. 토큰이 선택된 상태에서 왼/오 방향키를 누르면 토큰을 문장 내에서 이동시킬 수 있습니다."}<br></br></b>
+          <b>{"1.1. DRAG & DROP을 통해 마우스로 직접 토큰을 옮길 수 있습니다."}<br></br></b>
+          <b>{"1.2. 키보드로 토큰을 옮기는 방법은 다음과 같습니다. 왼쪽, 오른쪽 방향키를 이용하여 포커스를 이동한 후 스페이스바를 누르면 토큰이 선택됩니다. 토큰이 선택된 상태에서 왼/오 방향키를 누르면 토큰을 문장 내에서 이동시킬 수 있습니다."}<br></br></b>
           <b>{"2. 위/아래 방향키로 문장 간 이동이 가능합니다."}<br></br></b>
           <b>{"3. Ctrl+Z로 Undo 할 수 있습니다."}<br></br></b>
-          <b>{"4. ESC를 이용해 포커스 선택을 취소할 수 있습니다."}</b>
+          <b>{"4. ESC를 이용해 포커스 선택을 취소할 수 있습니다.(또는 스페이스바 한 번 더)"}</b>
         </div>
       )}
     </div>
