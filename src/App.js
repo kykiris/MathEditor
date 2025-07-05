@@ -231,6 +231,9 @@ function App() {
   return (
     <div style={{ padding: 32, maxWidth: 700, margin: "auto" }}>
       <h2>MathTagEditor</h2>
+      <p style={{ color: "#555", fontSize: 16, margin: "8px 0 16px 0" }}>
+        안 돌아가면 김유경에게 알려주세요...
+      </p>
       <input type="file" onChange={handleFileChange} accept=".txt" />
       <button onClick={handleUpload}>Upload</button>
       <hr />
