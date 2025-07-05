@@ -60,20 +60,20 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  const handleFileChange = (e) => setFile(e.target.files[0]);
+  const handleFileChange = (e) => setFileList(e.target.files);
   const handleUpload = async () => {
-    if (!file) return alert("파일을 선택하세요!");
+    if (!fileList || fileList.length === 0) return alert("파일을 선택하세요!");
     const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch("https://mathtageditor.onrender.com/upload", { method: "POST", body: formData });
+    for (let i = 0; i < fileList.length; ++i) {
+      formData.append("files", fileList[i]); // name은 FastAPI 파라미터명과 맞춰야 함!
+    }
+    const res = await fetch("https://mathtageditor.onrender.com/upload", {
+      method: "POST", body: formData
+    });
     const data = await res.json();
     setSentences(data.sentences || []);
     setEditedSentences(data.sentences || []);
     setCurrentIdx(0);
-    setSelectedIdx(0);
-    setDragIdx(null);
-    setDropIdx(null);
-    setUndoStack([]);
   };
 
   // Undo (키보드/버튼)
@@ -328,7 +328,7 @@ function App() {
       <p style={{ color: "#555", fontSize: 16, margin: "8px 0 16px 0" }}>
         무료 호스팅 중이라 중간중간 로딩이 오래 걸릴 수도 있습니다...
       </p>
-      <input type="file" onChange={handleFileChange} accept=".txt" />
+      <input type="file" onChange={handleFileChange} accept=".txt" multiple />
       <button onClick={handleUpload}>Upload</button>
       <hr />
       {sentences.length > 0 && (
