@@ -1,10 +1,10 @@
 import os
 import nltk
-
-# 현재 파일 경로 기준으로 nltk_data 등록
 NLTK_DATA_PATH = os.path.join(os.path.dirname(__file__), "nltk_data")
 nltk.data.path.insert(0, NLTK_DATA_PATH)
-print("NLTK_DATA_PATH", NLTK_DATA_PATH, "NLTK.data.path", nltk.data.path)
+print("NLTK DATA PATHS:", nltk.data.path)
+print("Exists?", os.path.exists(os.path.join(NLTK_DATA_PATH, "tokenizers/punkt/english.pickle")))
+
 
 from fastapi import FastAPI, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
