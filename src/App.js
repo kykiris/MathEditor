@@ -382,7 +382,7 @@ function App() {
         안 돌아가면 김유경에게 알려주세요...
       </p>
       <p style={{ color: "#555", fontSize: 16, margin: "8px 0 16px 0" }}>
-        무료 호스팅 중이라 중간중간 로딩이 오래 걸릴 수도 있습니다. Upload 버튼 누르고 아무 일도 일어나지 않으면 몇 분 정도 더 기다려보세요
+        돈이 없습니다. 무료 호스팅 중이라 중간중간 로딩이 오래 걸릴 수도 있습니다. Upload 버튼 누르고 아무 일도 일어나지 않으면 몇 분 정도 더 기다려보세요
       </p>
       <input type="file" onChange={handleFileChange} accept=".txt" multiple />
       <button onClick={handleUpload}>Upload</button>
