@@ -234,6 +234,9 @@ function App() {
       <p style={{ color: "#555", fontSize: 16, margin: "8px 0 16px 0" }}>
         안 돌아가면 김유경에게 알려주세요...
       </p>
+      <p style={{ color: "#555", fontSize: 16, margin: "8px 0 16px 0" }}>
+        무료 호스팅 중이라 중간중간 로딩이 오래 걸릴 수도 있습니다...
+      </p>
       <input type="file" onChange={handleFileChange} accept=".txt" />
       <button onClick={handleUpload}>Upload</button>
       <hr />
