@@ -1,4 +1,4 @@
 fastapi
 uvicorn
 python-multipart
-nltk
+nltk==3.8.1
