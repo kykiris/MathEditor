@@ -396,10 +396,10 @@ function App() {
             </span>
             <button onClick={goNext} disabled={currentIdx === sentences.length - 1}>Next</button>
             <button onClick={handleUndo} disabled={undoStack.length === 0} style={{ marginLeft: 16 }}>
-              Undo (Undo)
+              Undo
             </button>
             <button onClick={handleExport} style={{ marginLeft: 16 }}>
-              Export... (Export)
+              Export...
             </button>
             <div style={{ fontSize: 14, color: "#888", marginTop: 5, marginLeft: 30 }}>
               위치가 바뀐 태그: {movedTags} / 전체 태그 {totalTags}
