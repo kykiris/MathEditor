@@ -25,19 +25,30 @@ function joinTokens(tokens) {
   return joined.replace(/\s+/g, " ").trim();
 }
 
+function normalizeMathTags(sentence) {
+  // 모든 <math> 계열 태그를 대문자 <MATH> / </MATH>로 통일
+  return sentence
+    .replace(/<\s*math\s*>/gi, '<MATH>')
+    .replace(/<\s*\/\s*math\s*>/gi, '</MATH>')
+    .replace(/<\s*Math\s*>/gi, '<MATH>')
+    .replace(/<\s*\/\s*Math\s*>/gi, '</MATH>');
+}
+
 function calcSentenceAccuracy(originalSentences, editedSentences) {
   let total = originalSentences.length;
   let modified = 0;
 
   for (let i = 0; i < total; ++i) {
-    const orig = (originalSentences[i] || "").trim();
-    const edit = (editedSentences[i] || "").trim();
+    // 태그 표준화 후 비교
+    const orig = normalizeMathTags(originalSentences[i] || "").trim();
+    const edit = normalizeMathTags(editedSentences[i] || "").trim();
     if (orig !== edit) modified += 1;
   }
 
   const accuracy = total === 0 ? 1 : (total - modified) / total;
   return { total, modified, accuracy };
 }
+
 
 function App() {
   const [fileList, setFileList] = useState(null);
@@ -262,6 +273,7 @@ function App() {
     const cur = editedSentences[currentIdx];
     const tokens = tokenize(cur);
 
+    
     let spans = [];
     for (let i = 0; i <= tokens.length; ++i) {
       // 토큰 사이 삽입선
@@ -285,7 +297,7 @@ function App() {
       );
       if (i < tokens.length) {
         const token = tokens[i];
-        const isMathTag = token === "<MATH>" || token === "</MATH>";
+        const isMathTag = /^<\/?math>$/i.test(token);
         const isWideSpace = token === " ";
         spans.push(
           <span
