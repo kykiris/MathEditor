@@ -25,41 +25,18 @@ function joinTokens(tokens) {
   return joined.replace(/\s+/g, " ").trim();
 }
 
-function calcTagMoveAccuracy(originalSentences, editedSentences) {
-  let totalTags = 0;
-  let movedTags = 0;
+function calcSentenceAccuracy(originalSentences, editedSentences) {
+  let total = originalSentences.length;
+  let modified = 0;
 
-  function tagSeq(tokens) {
-    // 태그 시퀀스만 추출 (ex: ["<MATH>", "</MATH>", "<MATH>", ...])
-    return tokens.filter(t => t === "<MATH>" || t === "</MATH>");
+  for (let i = 0; i < total; ++i) {
+    const orig = (originalSentences[i] || "").trim();
+    const edit = (editedSentences[i] || "").trim();
+    if (orig !== edit) modified += 1;
   }
 
-  for (let i = 0; i < originalSentences.length; ++i) {
-    const orig = originalSentences[i] || "";
-    const edit = editedSentences[i] || "";
-
-    const origTags = tagSeq(tokenize(orig));
-    const editTags = tagSeq(tokenize(edit));
-
-    totalTags += origTags.length;
-
-    // 태그 수가 다르면 “수정 1회”로 처리, 위치 비교는 스킵
-    if (origTags.length !== editTags.length) {
-      movedTags += 1;
-      continue;
-    }
-
-    // 태그 수가 같으면 위치 변화만 세기
-    for (let j = 0; j < origTags.length; ++j) {
-      if (origTags[j] !== editTags[j]) {
-        movedTags += 1;
-      }
-    }
-  }
-
-  const unchanged = totalTags - movedTags;
-  const accuracy = totalTags === 0 ? 1 : unchanged / totalTags;
-  return { totalTags, movedTags, accuracy };
+  const accuracy = total === 0 ? 1 : (total - modified) / total;
+  return { total, modified, accuracy };
 }
 
 function App() {
@@ -81,8 +58,9 @@ function App() {
   //   0
   // );
   // const totalCount = sentences.length;
-  const { totalTags, movedTags, accuracy } = calcTagMoveAccuracy(sentences, editedSentences);
+  const { total, modified, accuracy } = calcSentenceAccuracy(sentences, editedSentences);
   const accuracyStr = (accuracy * 100).toFixed(2) + "%";
+
 
 
   // 포커스를 항상 유지 (문장 바뀔 때, 마운트 후)
@@ -418,7 +396,7 @@ function App() {
               Export...
             </button>
             <div style={{ fontSize: 14, color: "#888", marginTop: 5, marginLeft: 30 }}>
-              위치가 바뀐 태그: {movedTags} / 전체 태그 {totalTags}
+              수정된 문장: {modified} / 전체 문장 {total}
               <span style={{ marginLeft: 16 }}>
                 Accuracy: {accuracyStr}
               </span>
