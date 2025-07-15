@@ -25,51 +25,30 @@ function joinTokens(tokens) {
   return joined.replace(/\s+/g, " ").trim();
 }
 
-function calcTagMoveAccuracy(originalSentences, editedSentences) {
-  let totalTags = 0;
-  let movedTags = 0;
-
-  function tagPositions(tokens, tag) {
-    // 태그별 위치 인덱스 배열 리턴
-    const positions = [];
-    tokens.forEach((t, i) => {
-      if (t === tag) positions.push(i);
-    });
-    return positions;
-  }
-
-  for (let i = 0; i < originalSentences.length; ++i) {
-    const orig = originalSentences[i] || "";
-    const edit = editedSentences[i] || "";
-
-    // 기존 tokenize 함수 사용 (단어+공백+태그 단위 분리)
-    const origTokens = tokenize(orig);
-    const editTokens = tokenize(edit);
-
-    // 각 문장에서 <MATH>와 </MATH> 위치 찾기
-    const origMathPos = tagPositions(origTokens, "<MATH>");
-    const editMathPos = tagPositions(editTokens, "<MATH>");
-    const origEndPos = tagPositions(origTokens, "</MATH>");
-    const editEndPos = tagPositions(editTokens, "</MATH>");
-
-    // 전체 태그 개수 세기
-    totalTags += origMathPos.length;
-    totalTags += origEndPos.length;
-
-    // 이동(변경)된 태그 개수 세기
-    for (let j = 0; j < origMathPos.length; ++j) {
-      if (editMathPos[j] !== origMathPos[j]) movedTags += 1;
-    }
-    for (let j = 0; j < origEndPos.length; ++j) {
-      if (editEndPos[j] !== origEndPos[j]) movedTags += 1;
-    }
-  }
-
-  // Accuracy 계산 (변경되지 않은 태그 개수 / 전체 태그 개수)
-  const unchanged = totalTags - movedTags;
-  const accuracy = totalTags === 0 ? 1 : unchanged / totalTags;
-  return { totalTags, movedTags, accuracy };
+function normalizeMathTags(sentence) {
+  // 모든 <math> 계열 태그를 대문자 <MATH> / </MATH>로 통일
+  return sentence
+    .replace(/<\s*math\s*>/gi, '<MATH>')
+    .replace(/<\s*\/\s*math\s*>/gi, '</MATH>')
+    .replace(/<\s*Math\s*>/gi, '<MATH>')
+    .replace(/<\s*\/\s*Math\s*>/gi, '</MATH>');
 }
+
+function calcSentenceAccuracy(originalSentences, editedSentences) {
+  let total = originalSentences.length;
+  let modified = 0;
+
+  for (let i = 0; i < total; ++i) {
+    // 태그 표준화 후 비교
+    const orig = normalizeMathTags(originalSentences[i] || "").trim();
+    const edit = normalizeMathTags(editedSentences[i] || "").trim();
+    if (orig !== edit) modified += 1;
+  }
+
+  const accuracy = total === 0 ? 1 : (total - modified) / total;
+  return { total, modified, accuracy };
+}
+
 
 function App() {
   const [fileList, setFileList] = useState(null);
@@ -90,8 +69,9 @@ function App() {
   //   0
   // );
   // const totalCount = sentences.length;
-  const { totalTags, movedTags, accuracy } = calcTagMoveAccuracy(sentences, editedSentences);
+  const { total, modified, accuracy } = calcSentenceAccuracy(sentences, editedSentences);
   const accuracyStr = (accuracy * 100).toFixed(2) + "%";
+
 
 
   // 포커스를 항상 유지 (문장 바뀔 때, 마운트 후)
@@ -103,10 +83,17 @@ function App() {
   }, [currentIdx, sentences.length, editedSentences]);
 
   function handleExport() {
-    const content = editedSentences.join("\n");
+    // 수정 버전에서 math 태그(<MATH> 또는 </MATH>)가 하나라도 남아있는 문장만 export
+    const mathTagRegex = /<MATH>|<\/MATH>/;
+    const filtered = editedSentences.filter(s => mathTagRegex.test(s));
+    if (filtered.length === 0) {
+      alert("수식 태그가 남아있는 문장이 없습니다.");
+      return;
+    }
+    const content = filtered.join("\n");
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-
+  
     const a = document.createElement("a");
     a.href = url;
     a.download = "export.txt";
@@ -114,7 +101,8 @@ function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+  }
+
 
   const handleFileChange = (e) => setFileList(e.target.files);
   const handleUpload = async () => {
@@ -211,6 +199,23 @@ function App() {
         e.preventDefault();
       }
     }
+
+    if (dragIdx === null) {
+      if ((e.key === "Delete" || e.key === "Backspace") && isMathTag(tokens[selectedIdx])) {
+        setUndoStack(stack => [...stack, [...editedSentences]]);
+        const tokensArr = [...tokens];
+        tokensArr.splice(selectedIdx, 1);
+        const arr = [...editedSentences];
+        arr[currentIdx] = joinTokens(tokensArr);
+        setEditedSentences(arr);
+        setSelectedIdx(Math.max(0, selectedIdx - 1));
+        e.preventDefault();
+      }
+    }
+    function isMathTag(token) {
+      return token === "<MATH>" || token === "</MATH>";
+    }
+
   }
 
   const goPrev = () => {
@@ -268,6 +273,7 @@ function App() {
     const cur = editedSentences[currentIdx];
     const tokens = tokenize(cur);
 
+    
     let spans = [];
     for (let i = 0; i <= tokens.length; ++i) {
       // 토큰 사이 삽입선
@@ -291,7 +297,7 @@ function App() {
       );
       if (i < tokens.length) {
         const token = tokens[i];
-        const isMathTag = token === "<MATH>" || token === "</MATH>";
+        const isMathTag = /^<\/?math>$/i.test(token);
         const isWideSpace = token === " ";
         spans.push(
           <span
@@ -402,7 +408,7 @@ function App() {
               Export...
             </button>
             <div style={{ fontSize: 14, color: "#888", marginTop: 5, marginLeft: 30 }}>
-              위치가 바뀐 태그: {movedTags} / 전체 태그 {totalTags}
+              수정된 문장: {modified} / 전체 문장 {total}
               <span style={{ marginLeft: 16 }}>
                 Accuracy: {accuracyStr}
               </span>
@@ -420,7 +426,8 @@ function App() {
           <b>{"1.2. 키보드로 토큰을 옮기는 방법은 다음과 같습니다. 왼쪽, 오른쪽 방향키를 이용하여 포커스를 이동한 후 스페이스바를 누르면 토큰이 선택됩니다. 토큰이 선택된 상태에서 왼/오 방향키를 누르면 토큰을 문장 내에서 이동시킬 수 있습니다."}<br></br></b>
           <b>{"2. 위/아래 방향키로 문장 간 이동이 가능합니다."}<br></br></b>
           <b>{"3. Ctrl+Z로 Undo 할 수 있습니다."}<br></br></b>
-          <b>{"4. ESC를 이용해 포커스 선택을 취소할 수 있습니다.(또는 스페이스바 한 번 더)"}</b>
+          <b>{"4. ESC를 이용해 포커스 선택을 취소할 수 있습니다.(또는 스페이스바 한 번 더)"}<br></br></b>
+          <b>{"5. DELETE를 눌러서 태그를 삭제합니다."}</b>
         </div>
       )}
     </div>
