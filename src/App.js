@@ -211,6 +211,23 @@ function App() {
         e.preventDefault();
       }
     }
+
+    if (dragIdx === null) {
+      if ((e.key === "Delete" || e.key === "Backspace") && isMathTag(tokens[selectedIdx])) {
+        setUndoStack(stack => [...stack, [...editedSentences]]);
+        const tokensArr = [...tokens];
+        tokensArr.splice(selectedIdx, 1);
+        const arr = [...editedSentences];
+        arr[currentIdx] = joinTokens(tokensArr);
+        setEditedSentences(arr);
+        setSelectedIdx(Math.max(0, selectedIdx - 1));
+        e.preventDefault();
+      }
+    }
+    function isMathTag(token) {
+      return token === "<MATH>" || token === "</MATH>";
+    }
+
   }
 
   const goPrev = () => {
