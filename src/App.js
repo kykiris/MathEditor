@@ -29,42 +29,31 @@ function calcTagMoveAccuracy(originalSentences, editedSentences) {
   let totalTags = 0;
   let movedTags = 0;
 
-  function tagPositions(tokens, tag) {
-    const positions = [];
-    tokens.forEach((t, i) => {
-      if (t === tag) positions.push(i);
-    });
-    return positions;
+  function tagSeq(tokens) {
+    // 태그 시퀀스만 추출 (ex: ["<MATH>", "</MATH>", "<MATH>", ...])
+    return tokens.filter(t => t === "<MATH>" || t === "</MATH>");
   }
 
   for (let i = 0; i < originalSentences.length; ++i) {
     const orig = originalSentences[i] || "";
     const edit = editedSentences[i] || "";
 
-    const origTokens = tokenize(orig);
-    const editTokens = tokenize(edit);
+    const origTags = tagSeq(tokenize(orig));
+    const editTags = tagSeq(tokenize(edit));
 
-    // 각 문장에서 <MATH>와 </MATH> 개수
-    const origMath = tagPositions(origTokens, "<MATH>");
-    const origEnd = tagPositions(origTokens, "</MATH>");
-    const editMath = tagPositions(editTokens, "<MATH>");
-    const editEnd = tagPositions(editTokens, "</MATH>");
+    totalTags += origTags.length;
 
-    // 전체 태그 개수 세기
-    totalTags += origMath.length + origEnd.length;
-
-    // (1) 태그 개수 차이(삭제) 체크
-    if (origMath.length !== editMath.length || origEnd.length !== editEnd.length) {
-      movedTags += 1; // 이 문장은 삭제 1회로 카운트(1회만)
-      continue; // 위치 변화 체크는 스킵
+    // 태그 수가 다르면 “수정 1회”로 처리, 위치 비교는 스킵
+    if (origTags.length !== editTags.length) {
+      movedTags += 1;
+      continue;
     }
 
-    // (2) 위치 변화만 체크
-    for (let j = 0; j < origMath.length; ++j) {
-      if (editMath[j] !== origMath[j]) movedTags += 1;
-    }
-    for (let j = 0; j < origEnd.length; ++j) {
-      if (editEnd[j] !== origEnd[j]) movedTags += 1;
+    // 태그 수가 같으면 위치 변화만 세기
+    for (let j = 0; j < origTags.length; ++j) {
+      if (origTags[j] !== editTags[j]) {
+        movedTags += 1;
+      }
     }
   }
 
