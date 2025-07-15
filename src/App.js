@@ -30,7 +30,6 @@ function calcTagMoveAccuracy(originalSentences, editedSentences) {
   let movedTags = 0;
 
   function tagPositions(tokens, tag) {
-    // 태그별 위치 인덱스 배열 리턴
     const positions = [];
     tokens.forEach((t, i) => {
       if (t === tag) positions.push(i);
@@ -42,30 +41,33 @@ function calcTagMoveAccuracy(originalSentences, editedSentences) {
     const orig = originalSentences[i] || "";
     const edit = editedSentences[i] || "";
 
-    // 기존 tokenize 함수 사용 (단어+공백+태그 단위 분리)
     const origTokens = tokenize(orig);
     const editTokens = tokenize(edit);
 
-    // 각 문장에서 <MATH>와 </MATH> 위치 찾기
-    const origMathPos = tagPositions(origTokens, "<MATH>");
-    const editMathPos = tagPositions(editTokens, "<MATH>");
-    const origEndPos = tagPositions(origTokens, "</MATH>");
-    const editEndPos = tagPositions(editTokens, "</MATH>");
+    // 각 문장에서 <MATH>와 </MATH> 개수
+    const origMath = tagPositions(origTokens, "<MATH>");
+    const origEnd = tagPositions(origTokens, "</MATH>");
+    const editMath = tagPositions(editTokens, "<MATH>");
+    const editEnd = tagPositions(editTokens, "</MATH>");
 
     // 전체 태그 개수 세기
-    totalTags += origMathPos.length;
-    totalTags += origEndPos.length;
+    totalTags += origMath.length + origEnd.length;
 
-    // 이동(변경)된 태그 개수 세기
-    for (let j = 0; j < origMathPos.length; ++j) {
-      if (editMathPos[j] !== origMathPos[j]) movedTags += 1;
+    // (1) 태그 개수 차이(삭제) 체크
+    if (origMath.length !== editMath.length || origEnd.length !== editEnd.length) {
+      movedTags += 1; // 이 문장은 삭제 1회로 카운트(1회만)
+      continue; // 위치 변화 체크는 스킵
     }
-    for (let j = 0; j < origEndPos.length; ++j) {
-      if (editEndPos[j] !== origEndPos[j]) movedTags += 1;
+
+    // (2) 위치 변화만 체크
+    for (let j = 0; j < origMath.length; ++j) {
+      if (editMath[j] !== origMath[j]) movedTags += 1;
+    }
+    for (let j = 0; j < origEnd.length; ++j) {
+      if (editEnd[j] !== origEnd[j]) movedTags += 1;
     }
   }
 
-  // Accuracy 계산 (변경되지 않은 태그 개수 / 전체 태그 개수)
   const unchanged = totalTags - movedTags;
   const accuracy = totalTags === 0 ? 1 : unchanged / totalTags;
   return { totalTags, movedTags, accuracy };
