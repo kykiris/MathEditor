@@ -25,7 +25,19 @@ def split_sentences(text):
     def contains_math_tag(s):
         s_lower = s.lower()
         return "<math>" in s_lower or "</math>" in s_lower
-    return [s.strip() for s in sents if s.strip() and contains_math_tag(s)]
+    def normalize_math_tag_spacing(sentence):
+        sentence = re.sub(r'(?i)([^\s])(<math>)', r'\1 \2', sentence)
+        sentence = re.sub(r'(?i)(<math>)([^\s])', r'\1 \2', sentence)
+        sentence = re.sub(r'(?i)([^\s])(</math>)', r'\1 \2', sentence)
+        sentence = re.sub(r'(?i)(</math>)([^\s,.;:!?])', r'\1 \2', sentence)
+        sentence = re.sub(r'(?i)(</math>)\s+([,.;:!?])', r'\1\2', sentence)
+        sentence = re.sub(r'\s+', ' ', sentence).strip()
+        return sentence
+    # 1. <math> 태그 있는 문장만
+    filtered = [s.strip() for s in sents if s.strip() and contains_math_tag(s)]
+    # 2. 태그 앞뒤 공백 normalize
+    normalized = [normalize_math_tag_spacing(s) for s in filtered]
+    return normalized
 
 @app.post("/upload")
 async def upload(files: List[UploadFile] = File(...)):
