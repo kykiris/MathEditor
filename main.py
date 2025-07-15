@@ -22,7 +22,10 @@ app.add_middleware(
 def split_sentences(text):
     import re
     sents = re.split(r'(?<=[.!?])\s+', text)
-    return [s.strip() for s in sents if s.strip() and ("<MATH>" in s or "</MATH>" in s)]
+    def contains_math_tag(s):
+        s_lower = s.lower()
+        return "<math>" in s_lower or "</math>" in s_lower
+    return [s.strip() for s in sents if s.strip() and contains_math_tag(s)]
 
 @app.post("/upload")
 async def upload(files: List[UploadFile] = File(...)):
