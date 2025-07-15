@@ -103,10 +103,17 @@ function App() {
   }, [currentIdx, sentences.length, editedSentences]);
 
   function handleExport() {
-    const content = editedSentences.join("\n");
+    // 수정 버전에서 math 태그(<MATH> 또는 </MATH>)가 하나라도 남아있는 문장만 export
+    const mathTagRegex = /<MATH>|<\/MATH>/;
+    const filtered = editedSentences.filter(s => mathTagRegex.test(s));
+    if (filtered.length === 0) {
+      alert("수식 태그가 남아있는 문장이 없습니다.");
+      return;
+    }
+    const content = filtered.join("\n");
     const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
-
+  
     const a = document.createElement("a");
     a.href = url;
     a.download = "export.txt";
@@ -114,7 +121,8 @@ function App() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  };
+  }
+
 
   const handleFileChange = (e) => setFileList(e.target.files);
   const handleUpload = async () => {
